@@ -57,11 +57,31 @@ Default port: **3001**. After starting:
 ```
 liquifact-backend/
 ├── src/
-│   └── index.js    # Express app, routes (health, invoices, escrow)
-├── .env.example   # Env template (PORT, Stellar, DB placeholders)
+│   ├── app.js          # App configuration
+│   ├── index.js        # Server entry point
+│   ├── routes/         # API routes
+│   ├── services/       # Business logic / DB interaction
+│   └── tests/          # Unit and integration tests
+├── .env.example
 ├── eslint.config.js
 └── package.json
 ```
+
+---
+
+## API Endpoints
+
+### Invoices
+
+#### `GET /api/invoices/:id`
+Retrieve a single invoice.
+- **Requires header**: `x-user-id` (mock user identification).
+- **Responses**:
+  - `200 OK`: Returns the invoice data.
+  - `400 Bad Request`: Invalid or missing ID.
+  - `401 Unauthorized`: Missing `x-user-id` header.
+  - `403 Forbidden`: User does not have access to the invoice.
+  - `404 Not Found`: Invoice with specified ID doesn't exist.
 
 ---
 

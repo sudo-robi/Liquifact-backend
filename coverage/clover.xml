@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<coverage generated="1774341393450" clover="3.2.0">
+  <project timestamp="1774341393450" name="All files">
+    <metrics statements="52" coveredstatements="52" conditionals="24" coveredconditionals="23" methods="8" coveredmethods="8" elements="84" coveredelements="83" complexity="0" loc="52" ncloc="52" packages="3" files="3" classes="3"/>
+    <package name="src">
+      <metrics statements="20" coveredstatements="20" conditionals="6" coveredconditionals="5" methods="5" coveredmethods="5"/>
+      <file name="app.js" path="C:\Users\user\Desktop\works\liquifact\src\app.js">
+        <metrics statements="20" coveredstatements="20" conditionals="6" coveredconditionals="5" methods="5" coveredmethods="5"/>
+        <line num="1" count="1" type="stmt"/>
+        <line num="2" count="1" type="stmt"/>
+        <line num="3" count="1" type="stmt"/>
+        <line num="5" count="1" type="stmt"/>
+        <line num="7" count="1" type="stmt"/>
+        <line num="8" count="1" type="stmt"/>
+        <line num="11" count="1" type="stmt"/>
+        <line num="12" count="1" type="stmt"/>
+        <line num="21" count="1" type="stmt"/>
+        <line num="22" count="1" type="stmt"/>
+        <line num="33" count="1" type="stmt"/>
+        <line num="36" count="1" type="stmt"/>
+        <line num="37" count="1" type="stmt"/>
+        <line num="38" count="1" type="stmt"/>
+        <line num="44" count="1" type="stmt"/>
+        <line num="45" count="1" type="stmt"/>
+        <line num="48" count="1" type="stmt"/>
+        <line num="50" count="1" type="cond" truecount="2" falsecount="0"/>
+        <line num="51" count="1" type="stmt"/>
+        <line num="57" count="1" type="stmt"/>
+      </file>
+    </package>
+    <package name="src.routes">
+      <metrics statements="19" coveredstatements="19" conditionals="10" coveredconditionals="10" methods="1" coveredmethods="1"/>
+      <file name="invoiceRoutes.js" path="C:\Users\user\Desktop\works\liquifact\src\routes\invoiceRoutes.js">
+        <metrics statements="19" coveredstatements="19" conditionals="10" coveredconditionals="10" methods="1" coveredmethods="1"/>
+        <line num="1" count="1" type="stmt"/>
+        <line num="2" count="1" type="stmt"/>
+        <line num="3" count="1" type="stmt"/>
+        <line num="10" count="1" type="stmt"/>
+        <line num="11" count="6" type="stmt"/>
+        <line num="12" count="6" type="stmt"/>
+        <line num="15" count="6" type="cond" truecount="2" falsecount="0"/>
+        <line num="16" count="1" type="stmt"/>
+        <line num="20" count="5" type="cond" truecount="4" falsecount="0"/>
+        <line num="21" count="1" type="stmt"/>
+        <line num="24" count="4" type="stmt"/>
+        <line num="25" count="4" type="stmt"/>
+        <line num="28" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="29" count="1" type="stmt"/>
+        <line num="33" count="1" type="stmt"/>
+        <line num="39" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="40" count="1" type="stmt"/>
+        <line num="44" count="1" type="stmt"/>
+        <line num="48" count="1" type="stmt"/>
+      </file>
+    </package>
+    <package name="src.services">
+      <metrics statements="13" coveredstatements="13" conditionals="8" coveredconditionals="8" methods="2" coveredmethods="2"/>
+      <file name="invoiceService.js" path="C:\Users\user\Desktop\works\liquifact\src\services\invoiceService.js">
+        <metrics statements="13" coveredstatements="13" conditionals="8" coveredconditionals="8" methods="2" coveredmethods="2"/>
+        <line num="7" count="1" type="stmt"/>
+        <line num="21" count="1" type="stmt"/>
+        <line num="23" count="5" type="cond" truecount="4" falsecount="0"/>
+        <line num="24" count="2" type="stmt"/>
+        <line num="28" count="7" type="stmt"/>
+        <line num="31" count="3" type="cond" truecount="2" falsecount="0"/>
+        <line num="32" count="1" type="stmt"/>
+        <line num="37" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="38" count="1" type="stmt"/>
+        <line num="39" count="1" type="stmt"/>
+        <line num="40" count="1" type="stmt"/>
+        <line num="43" count="1" type="stmt"/>
+        <line num="46" count="1" type="stmt"/>
+      </file>
+    </package>
+  </project>
+</coverage>

@@ -7,7 +7,20 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "lint": "eslint src/",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest --coverage --detectOpenHandles",
+    "test:watch": "jest --watch"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "collectCoverage": true,
+    "coverageThreshold": {
+      "global": {
+        "branches": 95,
+        "functions": 95,
+        "lines": 95,
+        "statements": 95
+      }
+    }
   },
   "keywords": [],
   "author": "",
@@ -19,6 +32,9 @@
     "express": "^5.2.1"
   },
   "devDependencies": {
-    "eslint": "^10.0.3"
+    "@types/jest": "^30.0.0",
+    "eslint": "^10.0.3",
+    "jest": "^30.3.0",
+    "supertest": "^7.2.2"
   }
 }
