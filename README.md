@@ -78,6 +78,18 @@ Current coverage targets: **>95% Lines and Statements**.
 
 ---
 
+## Authentication
+
+Protected endpoints (such as invoice mutations and escrow operations) require a JSON Web Token (JWT) in the `Authorization` header:
+
+```http
+Authorization: Bearer <jwt_token_here>
+```
+
+The middleware authenticates the token against the `JWT_SECRET` environment variable (defaults to `test-secret` for local development). Unauthenticated requests will be rejected with a `401 Unauthorized` status.
+
+---
+
 ## Project structure
 
 ```

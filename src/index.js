@@ -6,6 +6,7 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
+const { authenticateToken } = require('./middleware/auth');
 
 const asyncHandler = require('./utils/asyncHandler');
 const errorHandler = require('./middleware/errorHandler');
