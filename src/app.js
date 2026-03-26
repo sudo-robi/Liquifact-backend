@@ -94,7 +94,11 @@ function createApp() {
     const { invoiceId } = req.params;
 
     try {
-      // Simulated remote contract call
+      /**
+       * Simulates a Soroban contract read operation for escrow state.
+       *
+       * @returns {Promise<{ invoiceId: string, status: string, fundedAmount: number }>}
+       */
       const operation = async () => {
         return { invoiceId, status: 'not_found', fundedAmount: 0 };
       };
