@@ -2,11 +2,13 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
-const { callSorobanContract } = require('./services/soroban');
 const {
   createCorsOptions,
   isCorsOriginRejectedError,
 } = require('./config/cors');
+
+// Import repository registry
+const { RepositoryRegistry } = require('./repositories');
 
 /**
  * Returns a 403 JSON response only for the dedicated blocked-origin CORS error.
@@ -43,10 +45,16 @@ function handleInternalError(err, req, res, _next) {
 /**
  * Creates the LiquiFact API application with configured middleware and routes.
  *
+ * @param {Object} [deps={}] Dependency injection container.
+ * @param {import('./repositories/invoice.repository')} [deps.invoiceRepo] The invoice repository.
+ * @param {import('./repositories/escrow.repository')} [deps.escrowRepo] The escrow repository.
  * @returns {import('express').Express} Configured Express application.
  */
-function createApp() {
+function createApp(deps = {}) {
   const app = express();
+  
+  // Use RepositoryRegistry to manage repository dependencies
+  const { invoiceRepo, escrowRepo } = new RepositoryRegistry(deps);
 
   app.use(cors(createCorsOptions()));
   app.use(express.json());
@@ -74,36 +82,42 @@ function createApp() {
     });
   });
 
-  // Placeholder: Invoices (to be wired to Invoice Service + DB)
-  app.get('/api/invoices', (req, res) => {
-    res.json({
-      data: [],
-      message: 'Invoice service will list tokenized invoices here.',
-    });
+  // Invoices (using Repository)
+  app.get('/api/invoices', async (req, res) => {
+    try {
+      const invoices = await invoiceRepo.findAll();
+      res.json({
+        data: invoices,
+        message: 'Invoice list retrieved via repository abstraction layer.',
+      });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to retrieve invoices' });
+    }
   });
 
-  app.post('/api/invoices', (req, res) => {
-    res.status(201).json({
-      data: { id: 'placeholder', status: 'pending_verification' },
-      message: 'Invoice upload will be implemented with verification and tokenization.',
-    });
+  app.post('/api/invoices', async (req, res) => {
+    try {
+      const invoiceData = req.body;
+      const newInvoice = await invoiceRepo.create(invoiceData);
+      res.status(201).json({
+        data: newInvoice,
+        message: 'Invoice created successfully via repository abstraction layer.',
+      });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to create invoice' });
+    }
   });
 
-  // Placeholder: Escrow (to be wired to Soroban)
+  // Escrow (using Repository)
   app.get('/api/escrow/:invoiceId', async (req, res) => {
     const { invoiceId } = req.params;
 
     try {
-      // Simulated remote contract call
-      const operation = async () => {
-        return { invoiceId, status: 'not_found', fundedAmount: 0 };
-      };
-
-      const data = await callSorobanContract(operation);
+      const data = await escrowRepo.getEscrowState(invoiceId);
 
       res.json({
         data,
-        message: 'Escrow state read from Soroban contract via robust integration wrapper.',
+        message: 'Escrow state read from blockchain repository abstraction.',
       });
     } catch (error) {
       res.status(500).json({ error: error.message || 'Error fetching escrow state' });

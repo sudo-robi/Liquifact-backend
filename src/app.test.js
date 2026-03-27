@@ -278,7 +278,7 @@ describe('LiquiFact app integration', () => {
     expect(response.statusCode).toBe(200);
     expect(response.body).toEqual({
       data: [],
-      message: 'Invoice service will list tokenized invoices here.',
+      message: 'Invoice list retrieved via repository abstraction layer.',
     });
   });
 
@@ -286,12 +286,15 @@ describe('LiquiFact app integration', () => {
     const response = await invokeApp(createApp(), {
       method: 'POST',
       path: '/api/invoices',
+      body: { amount: 100, currency: 'XLM' },
     });
 
     expect(response.statusCode).toBe(201);
-    expect(response.body).toEqual({
-      data: { id: 'placeholder', status: 'pending_verification' },
-      message: 'Invoice upload will be implemented with verification and tokenization.',
+    expect(response.body.message).toBe('Invoice created successfully via repository abstraction layer.');
+    expect(response.body.data).toMatchObject({
+      amount: 100,
+      currency: 'XLM',
+      status: 'pending_verification'
     });
   });
 
@@ -301,10 +304,13 @@ describe('LiquiFact app integration', () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.body).toEqual({
-      data: { invoiceId: 'invoice-123', status: 'not_found', fundedAmount: 0 },
-      message: 'Escrow state read from Soroban contract via robust integration wrapper.',
+    expect(response.body.message).toBe('Escrow state read from blockchain repository abstraction.');
+    expect(response.body.data).toMatchObject({
+      invoiceId: 'invoice-123',
+      status: 'not_found',
+      fundedAmount: 0
     });
+    expect(response.body.data.lastUpdated).toBeDefined();
   });
 
   it('returns 404 for unknown routes', async () => {
