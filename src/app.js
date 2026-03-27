@@ -53,6 +53,13 @@ function createApp() {
   app.use(express.json());
 
   // Health check (liveness probe)
+  /**
+   * Health check endpoint (liveness probe).
+   *
+   * @param {import('express').Request} req Express request.
+   * @param {import('express').Response} res Express response.
+   * @returns {void}
+   */
   app.get('/health', (req, res) => {
     res.json({
       status: 'ok',
@@ -63,6 +70,13 @@ function createApp() {
   });
 
   // Readiness check (dependency-aware)
+  /**
+   * Readiness check endpoint (dependency-aware probe).
+   *
+   * @param {import('express').Request} req Express request.
+   * @param {import('express').Response} res Express response.
+   * @returns {Promise<void>}
+   */
   app.get('/ready', async (req, res) => {
     try {
       const { healthy, checks } = await performHealthChecks();
@@ -85,6 +99,13 @@ function createApp() {
   });
 
   // API info
+  /**
+   * API information endpoint.
+   *
+   * @param {import('express').Request} req Express request.
+   * @param {import('express').Response} res Express response.
+   * @returns {void}
+   */
   app.get('/api', (req, res) => {
     res.json({
       name: 'LiquiFact API',
@@ -98,6 +119,13 @@ function createApp() {
   });
 
   // Placeholder: Invoices (to be wired to Invoice Service + DB)
+  /**
+   * List invoices endpoint.
+   *
+   * @param {import('express').Request} req Express request.
+   * @param {import('express').Response} res Express response.
+   * @returns {void}
+   */
   app.get('/api/invoices', (req, res) => {
     res.json({
       data: [],
@@ -105,6 +133,13 @@ function createApp() {
     });
   });
 
+  /**
+   * Create invoice endpoint.
+   *
+   * @param {import('express').Request} req Express request.
+   * @param {import('express').Response} res Express response.
+   * @returns {void}
+   */
   app.post('/api/invoices', (req, res) => {
     res.status(201).json({
       data: { id: 'placeholder', status: 'pending_verification' },
@@ -113,11 +148,22 @@ function createApp() {
   });
 
   // Placeholder: Escrow (to be wired to Soroban)
+  /**
+   * Get escrow state for an invoice.
+   *
+   * @param {import('express').Request} req Express request.
+   * @param {import('express').Response} res Express response.
+   * @returns {Promise<void>}
+   */
   app.get('/api/escrow/:invoiceId', async (req, res) => {
     const { invoiceId } = req.params;
 
     try {
-      // Simulated remote contract call
+      /**
+       * Simulated remote contract call.
+       *
+       * @returns {Promise<Object>} The escrow data.
+       */
       const operation = async () => {
         return { invoiceId, status: 'not_found', fundedAmount: 0 };
       };
@@ -133,10 +179,25 @@ function createApp() {
     }
   });
 
+  /**
+   * Test error endpoint.
+   *
+   * @param {import('express').Request} req Express request.
+   * @param {import('express').Response} res Express response.
+   * @param {import('express').NextFunction} next Express next callback.
+   * @returns {void}
+   */
   app.get('/error', (req, res, next) => {
     next(new Error('Simulated server error'));
   });
 
+  /**
+   * Handles 404 Not Found errors for undefined routes.
+   *
+   * @param {import('express').Request} req Express request.
+   * @param {import('express').Response} res Express response.
+   * @returns {void}
+   */
   app.use((req, res) => {
     res.status(404).json({ error: 'Not found', path: req.path });
   });
