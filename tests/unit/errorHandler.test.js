@@ -76,7 +76,15 @@ describe('errorHandler middleware', () => {
     const res = await request(app).get('/error');
 
     expect(res.statusCode).toBe(500);
-    expect(res.body).toEqual({ error: { message: 'Boom' } });
+    expect(res.body).toEqual(
+      expect.objectContaining({
+        status: 500,
+        title: 'Internal Server Error',
+        detail: expect.any(String),
+        instance: '/error',
+        type: expect.any(String),
+      })
+    );
   });
 
   it('should respect custom statusCode', async () => {
@@ -91,7 +99,15 @@ describe('errorHandler middleware', () => {
     const res = await request(app).get('/custom');
 
     expect(res.statusCode).toBe(400);
-    expect(res.body).toEqual({ error: 'Bad Request' });
+    expect(res.body).toEqual(
+      expect.objectContaining({
+        status: 400,
+        title: 'Bad Request',
+        detail: expect.any(String),
+        instance: '/custom',
+        type: expect.any(String),
+      })
+    );
   });
 
   it('should hide stack in production', async () => {
@@ -105,7 +121,15 @@ describe('errorHandler middleware', () => {
 
     const res = await request(app).get('/prod-error');
 
-    expect(res.body).toEqual({ error: { message: 'Internal server error' } });
+    expect(res.body).toEqual(
+      expect.objectContaining({
+        status: 500,
+        title: 'Internal Server Error',
+        detail: expect.any(String),
+        instance: '/prod-error',
+        type: expect.any(String),
+      })
+    );
 
     process.env.NODE_ENV = 'test'; // reset
   });

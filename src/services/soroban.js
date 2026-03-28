@@ -73,7 +73,17 @@ function isRetryable(err) {
     return true;
   }
   if (err.response && RETRYABLE_STATUS_CODES.has(err.response.status)) {return true;}
+  if (typeof err.message === 'string') {
+    if (/\b(?:503|502|504|429)\b|timeout|Rate limit|Service Unavailable|Network timeout/i.test(err.message)) {
+      return true;
+    }
+  }
   return false;
+}
+
+/** @see isRetryable — legacy alias used by tests and older callers */
+function isTransientError(err) {
+  return isRetryable(err);
 }
 
 /**
@@ -124,19 +134,21 @@ async function withRetry(operation, config) {
  * Calls a Soroban contract operation with automatic retry on transient errors.
  *
  * This is the primary entry point used by route handlers.  It delegates to
- * {@link withRetry} using the project-wide {@link SOROBAN_RETRY_CONFIG}.
+ * {@link withRetry} using the project-wide {@link SOROBAN_RETRY_CONFIG},
+ * optionally merged with `config`.
  *
  * @template T
  * @param {() => Promise<T>} operation - Async function wrapping the contract call.
- * @returns {Promise<T>} Result of the contract call.
+ * @param {Object} [config] - Optional overrides for retry behaviour.
+ * @returns {Promise<T>} Result of the operation.
  *
  * @example
  * const state = await callSorobanContract(() =>
  *   client.invokeContract('get_escrow_state', [invoiceId])
  * );
  */
-async function callSorobanContract(operation) {
-  return withRetry(operation, SOROBAN_RETRY_CONFIG);
+async function callSorobanContract(operation, config) {
+  return withRetry(operation, Object.assign({}, SOROBAN_RETRY_CONFIG, config));
 }
 
 module.exports = {
@@ -144,6 +156,7 @@ module.exports = {
   withRetry,
   computeBackoff,
   isRetryable,
+  isTransientError,
   SOROBAN_RETRY_CONFIG,
   RETRYABLE_STATUS_CODES,
 };

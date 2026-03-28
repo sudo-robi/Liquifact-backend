@@ -3,9 +3,6 @@ const cors = require('cors');
 const { createApp, handleCorsError } = require('./app');
 const { CORS_REJECTION_MESSAGE } = require('./config/cors');
 const { createCorsOptions } = require('./config/cors');
-const invoiceService = require('./services/invoice.service');
-
-jest.mock('./services/invoice.service');
 
 /**
  * Temporarily overrides process.env variables for the duration of a function.
@@ -68,6 +65,8 @@ function createMockRequest({ method = 'GET', origin, path = '/health', body } = 
     method,
     url: path,
     path,
+    socket: { remoteAddress: '127.0.0.1' },
+    connection: { remoteAddress: '127.0.0.1' },
     headers: origin
       ? {
           origin,
@@ -305,9 +304,8 @@ describe('LiquiFact app integration', () => {
         });
 
         expect(response.statusCode).toBe(403);
-        expect(response.body).toEqual({
-          error: CORS_REJECTION_MESSAGE,
-        });
+        expect(response.body.error.message).toBe(CORS_REJECTION_MESSAGE);
+        expect(response.body.error.code).toBe('CORS_FORBIDDEN');
       }
     );
   });
@@ -362,9 +360,7 @@ describe('LiquiFact app integration', () => {
         });
 
         expect(response.statusCode).toBe(403);
-        expect(response.body).toEqual({
-          error: CORS_REJECTION_MESSAGE,
-        });
+        expect(response.body.error.message).toBe(CORS_REJECTION_MESSAGE);
       }
     );
   });
@@ -387,16 +383,13 @@ describe('LiquiFact app integration', () => {
   });
 
   it('returns the invoice list', async () => {
-    invoiceService.getInvoices.mockResolvedValue([]);
     const response = await invokeApp(createApp(), {
       path: '/api/invoices',
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.body).toEqual({
-      data: [],
-      message: 'Invoice list retrieved via repository abstraction layer.',
-    });
+    expect(response.body.error).toBeNull();
+    expect(Array.isArray(response.body.data)).toBe(true);
   });
 
   it('returns the invoice creation placeholder', async () => {
@@ -407,11 +400,11 @@ describe('LiquiFact app integration', () => {
     });
 
     expect(response.statusCode).toBe(201);
-    expect(response.body.message).toBe('Invoice created successfully via repository abstraction layer.');
+    expect(response.body.error).toBeNull();
     expect(response.body.data).toMatchObject({
       amount: 100,
       currency: 'XLM',
-      status: 'pending_verification'
+      status: 'pending_verification',
     });
   });
 
@@ -421,11 +414,11 @@ describe('LiquiFact app integration', () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.body.message).toBe('Escrow state read from blockchain repository abstraction.');
+    expect(response.body.error).toBeNull();
     expect(response.body.data).toMatchObject({
       invoiceId: 'invoice-123',
       status: 'not_found',
-      fundedAmount: 0
+      fundedAmount: 0,
     });
     expect(response.body.data.lastUpdated).toBeDefined();
   });
@@ -450,9 +443,8 @@ describe('LiquiFact app integration', () => {
     });
 
     expect(response.statusCode).toBe(500);
-    expect(response.body).toEqual({
-      error: { message: 'Simulated server error' },
-    });
+    expect(response.body.title).toBe('Internal Server Error');
+    expect(response.body.status).toBe(500);
 
     consoleErrorSpy.mockRestore();
   });

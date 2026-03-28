@@ -1,3 +1,4 @@
+
 const AppError = require('../errors/AppError');
 const formatProblemDetails = require('../utils/problemDetails');
 
@@ -11,9 +12,12 @@ const formatProblemDetails = require('../utils/problemDetails');
  * @returns {void}
  */
 function errorHandler(err, req, res, _next) {
+  if (err.nestedErrorFormat && err.statusCode) {
+    return res.status(err.statusCode).json({ error: err.message });
+  }
+
   let problem;
 
-  // Check if it's a known AppError instance
   if (err instanceof AppError) {
     problem = formatProblemDetails({
       type: err.type,
@@ -23,8 +27,17 @@ function errorHandler(err, req, res, _next) {
       instance: err.instance || req.originalUrl,
       stack: err.stack,
     });
+  } else if (err.statusCode && typeof err.statusCode === 'number') {
+    const status = err.statusCode;
+    problem = formatProblemDetails({
+      type: 'https://liquifact.com/probs/http-error',
+      title: err.message || (status === 400 ? 'Bad Request' : `HTTP ${status}`),
+      status,
+      detail: err.message || 'Request could not be completed.',
+      instance: req.originalUrl,
+      stack: err.stack,
+    });
   } else {
-    // If it's an unknown error, provide a fallback 500 status
     console.error('Unhandled Error:', err);
     problem = formatProblemDetails({
       type: 'https://example.com/probs/unexpected-error',
@@ -36,9 +49,22 @@ function errorHandler(err, req, res, _next) {
     });
   }
 
-  // RFC 7807 requires the Content-Type to be 'application/problem+json'
   res.header('Content-Type', 'application/problem+json');
   res.status(problem.status).json(problem);
 }
+
+/**
+ * Dedicated 500 handler that never leaks internal messages (tests / legacy callers).
+ * @param {Error} err
+ * @param {Object} req
+ * @param {Object} res
+ * @param {Function} next
+ * @returns {void}
+ */
+function handleInternalError(err, req, res, next) {
+  res.status(500).json({ error: 'Internal server error' });
+}
+
+errorHandler.handleInternalError = handleInternalError;
 
 module.exports = errorHandler;

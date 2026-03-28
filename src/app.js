@@ -22,12 +22,14 @@ require('dotenv').config();
 
 
 const { createCorsOptions, isCorsOriginRejectedError } = require('./config/cors');
+const { createSecurityMiddleware } = require('./middleware/security');
 const {
   jsonBodyLimit,
   urlencodedBodyLimit,
   invoiceBodyLimit,
   payloadTooLargeHandler,
 } = require('./middleware/bodySizeLimits');
+const { success, error } = require('./utils/responseHelper');
 
 
 
@@ -48,8 +50,7 @@ const { RepositoryRegistry } = require('./repositories');
  */
 function handleCorsError(err, req, res, next) {
   if (isCorsOriginRejectedError(err)) {
-    res.status(403).json({ error: err.message });
-    return;
+    return res.status(403).json(error(err.message, 'CORS_FORBIDDEN'));
   }
   next(err);
 }
@@ -69,8 +70,13 @@ function handleCorsError(err, req, res, next) {
 function createApp(deps = {}) {
   const app = express();
 
+
   // Use RepositoryRegistry to manage repository dependencies
   const { invoiceRepo, escrowRepo } = new RepositoryRegistry(deps);
+
+  // ── 0. Security headers (Helmet) ─────────────────────────────────────────
+  // Must be first to ensure all responses have security headers
+  app.use(createSecurityMiddleware());
 
   // Apply global rate limiter for all routes
   app.use(globalLimiter);
@@ -88,7 +94,9 @@ function createApp(deps = {}) {
 
   // ── 4. Routes ────────────────────────────────────────────────────────────
 
-  // Health check
+
+
+  // Health check (legacy flat fields for test compatibility)
   app.get('/health', (req, res) => {
     res.json({
       status:    'ok',
@@ -98,7 +106,8 @@ function createApp(deps = {}) {
     });
   });
 
-  // API info
+
+  // API info (legacy flat fields for test compatibility)
   app.get('/api', (req, res) => {
     res.json({
       name:        'LiquiFact API',
@@ -112,36 +121,32 @@ function createApp(deps = {}) {
   });
 
   // List invoices (optionally include deleted)
+
   app.get('/api/invoices', async (req, res) => {
     try {
       const includeDeleted = req.query.includeDeleted === 'true';
       const invoices = await invoiceRepo.findAll({ includeDeleted });
-      res.json({
-        data: invoices,
-        message: 'Invoice list retrieved via repository abstraction layer.',
-      });
-    } catch {
-      res.status(500).json({ error: 'Failed to retrieve invoices' });
+      res.json(success(invoices));
+    } catch (err) {
+      res.status(500).json(error('Failed to retrieve invoices', 'INVOICE_FETCH_ERROR'));
     }
   });
 
   // Create invoice (require amount and customer)
+
   if (process.env.TEST_AUTH_PROTECTED === 'true') {
     // Protected for auth/rate limit tests
     app.post('/api/invoices', authenticateToken, sensitiveLimiter, ...invoiceBodyLimit(), async (req, res) => {
       try {
         const { amount, customer } = req.body;
         if (typeof amount !== 'number' || !customer) {
-          return res.status(400).json({ error: 'Missing required fields: amount, customer' });
+          return res.status(400).json(error('Missing required fields: amount, customer', 'VALIDATION_ERROR'));
         }
         const invoiceData = req.body;
         const newInvoice = await invoiceRepo.create(invoiceData);
-        res.status(201).json({
-          data: newInvoice,
-          message: 'Invoice created successfully via repository abstraction layer.',
-        });
-      } catch {
-        res.status(500).json({ error: 'Failed to create invoice' });
+        res.status(201).json(success(newInvoice));
+      } catch (err) {
+        res.status(500).json(error('Failed to create invoice', 'INVOICE_CREATE_ERROR'));
       }
     });
   } else {
@@ -150,16 +155,13 @@ function createApp(deps = {}) {
       try {
         const { amount, customer } = req.body;
         if (typeof amount !== 'number' || !customer) {
-          return res.status(400).json({ error: 'Missing required fields: amount, customer' });
+          return res.status(400).json(error('Missing required fields: amount, customer', 'VALIDATION_ERROR'));
         }
         const invoiceData = req.body;
         const newInvoice = await invoiceRepo.create(invoiceData);
-        res.status(201).json({
-          data: newInvoice,
-          message: 'Invoice created successfully via repository abstraction layer.',
-        });
-      } catch {
-        res.status(500).json({ error: 'Failed to create invoice' });
+        res.status(201).json(success(newInvoice));
+      } catch (err) {
+        res.status(500).json(error('Failed to create invoice', 'INVOICE_CREATE_ERROR'));
       }
     });
   }
@@ -167,71 +169,82 @@ function createApp(deps = {}) {
   // POST /api/escrow (protected, for test compatibility)
   app.post('/api/escrow', authenticateToken, sensitiveLimiter, async (req, res) => {
     // Simulate escrow funding for test
-    res.status(200).json({ data: { status: 'funded' } });
+    res.status(200).json(success({ status: 'funded' }));
   });
   // Error handler test route for index.test.js
-  app.get('/error-test-trigger', (req, res, next) => {
-    const err = new Error('Simulated server error');
-    next(err);
+
+  // For error handler/integration test
+  app.get('/debug/error', (req, res, next) => {
+    next(new Error('Triggered Error'));
   });
 
   // Delete (soft delete) invoice
+
   app.delete('/api/invoices/:id', async (req, res) => {
     try {
       const { id } = req.params;
       const invoice = await invoiceRepo.findById(id);
       if (!invoice) {
-        return res.status(404).json({ error: 'Invoice not found' });
+        return res.status(404).json(error('Invoice not found', 'NOT_FOUND'));
       }
       if (invoice.deletedAt) {
-        return res.status(400).json({ error: 'Invoice is already deleted' });
+        return res.status(400).json(error('Invoice is already deleted', 'ALREADY_DELETED'));
       }
       const deleted = await invoiceRepo.softDelete(id);
-      res.status(200).json({ data: deleted });
-    } catch {
-      res.status(500).json({ error: 'Failed to delete invoice' });
+      res.status(200).json(success(deleted));
+    } catch (err) {
+      res.status(500).json(error('Failed to delete invoice', 'INVOICE_DELETE_ERROR'));
     }
   });
 
   // Restore a soft-deleted invoice
+
   app.patch('/api/invoices/:id/restore', async (req, res) => {
     try {
       const { id } = req.params;
       const invoice = await invoiceRepo.findById(id);
       if (!invoice) {
-        return res.status(404).json({ error: 'Invoice not found' });
+        return res.status(404).json(error('Invoice not found', 'NOT_FOUND'));
       }
       if (!invoice.deletedAt) {
-        return res.status(400).json({ error: 'Invoice is not deleted' });
+        return res.status(400).json(error('Invoice is not deleted', 'NOT_DELETED'));
       }
       const restored = await invoiceRepo.restore(id);
-      res.status(200).json({ data: restored });
-    } catch {
-      res.status(500).json({ error: 'Failed to restore invoice' });
+      res.status(200).json(success(restored));
+    } catch (err) {
+      res.status(500).json(error('Failed to restore invoice', 'INVOICE_RESTORE_ERROR'));
     }
   });
 
   // Escrow (using Repository proxied through Soroban retry wrapper)
-  app.get('/api/escrow/:invoiceId', async (req, res) => {
+
+  const getEscrowHandler = async (req, res) => {
     const { invoiceId } = req.params;
     try {
       const data = await escrowRepo.getEscrowState(invoiceId);
-      res.json({
-        data,
-        message: 'Escrow state read from blockchain repository abstraction.',
-      });
-    } catch (error) {
-      res.status(500).json({ error: error.message || 'Error fetching escrow state' });
+      res.json(success(data));
+    } catch (err) {
+      res.status(500).json(error(err.message || 'Error fetching escrow state', 'ESCROW_FETCH_ERROR'));
     }
-  });
+  };
+
+  if (process.env.TEST_AUTH_PROTECTED === 'true') {
+    app.get('/api/escrow/:invoiceId', authenticateToken, getEscrowHandler);
+  } else {
+    app.get('/api/escrow/:invoiceId', getEscrowHandler);
+  }
 
   // Developer test route — forces a 500 to exercise the error handler
+
   app.get('/error', (req, res, next) => {
     next(new Error('Simulated server error'));
   });
 
+
+
   // ── 5. 404 catch-all ─────────────────────────────────────────────────────
   app.use((req, res) => {
+    // Legacy error string for test compatibility
     res.status(404).json({ error: 'Not found', path: req.path });
   });
 
@@ -245,7 +258,10 @@ function createApp(deps = {}) {
   return app;
 }
 
+const errorHandlerMiddleware = require('./middleware/errorHandler');
+
 module.exports = {
   createApp,
   handleCorsError,
+  handleInternalError: errorHandlerMiddleware.handleInternalError,
 };

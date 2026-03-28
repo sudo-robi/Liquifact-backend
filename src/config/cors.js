@@ -38,7 +38,7 @@ const DEV_DEFAULT_ORIGINS = [
  * @returns {string[]|null} Array of allowed origins, or `null` if unset.
  */
 function parseAllowedOrigins(raw) {
-  if (!raw || raw.trim() === '') {return null;}
+  if (!raw || raw.trim() === '') {return null;} // Legacy: return null for missing/blank
   return [
     ...new Set(
       raw
@@ -50,16 +50,17 @@ function parseAllowedOrigins(raw) {
 }
 
 /**
- * Resolves the effective origin allowlist given the current environment.
+ * Resolves the effective origin allowlist for a given environment.
  *
+ * @param {NodeJS.ProcessEnv} [env=process.env] - Environment to read.
  * @returns {string[]|null} Allowlist to enforce, or `null` meaning "deny all
  *   browser origins" (production with no env var set).
  */
-function resolveAllowlist() {
-  const fromEnv = parseAllowedOrigins(process.env.CORS_ALLOWED_ORIGINS);
+function resolveAllowlist(env = process.env) {
+  const fromEnv = parseAllowedOrigins(env.CORS_ALLOWED_ORIGINS);
   if (fromEnv !== null) {return fromEnv;}
 
-  if (process.env.NODE_ENV === 'development') {return DEV_DEFAULT_ORIGINS;}
+  if (env.NODE_ENV === 'development') {return DEV_DEFAULT_ORIGINS;}
 
   // Production / test with no CORS_ALLOWED_ORIGINS → deny all browser origins.
   return null;
@@ -112,7 +113,7 @@ function createCorsRejectionError(_origin) {
  * @returns {boolean}
  */
 function isCorsOriginRejectedError(err) {
-  return err !== null && err.isCorsOriginRejected === true;
+  return err != null && err.isCorsOriginRejected === true;
 }
 
 /**
@@ -128,9 +129,11 @@ function isCorsOriginRejectedError(err) {
  * const cors = require('cors');
  * const { createCorsOptions } = require('./config/cors');
  * app.use(cors(createCorsOptions()));
+ *
+ * @param {NodeJS.ProcessEnv} [env=process.env] - Optional env (for tests).
  */
-function createCorsOptions() {
-  const allowlist = resolveAllowlist();
+function createCorsOptions(env = process.env) {
+  const allowlist = resolveAllowlist(env);
 
   return {
     /**
@@ -156,8 +159,8 @@ function createCorsOptions() {
 
       return callback(createCorsRejectionError(origin));
     },
-    // Expose the standard headers clients need.
-    optionsSuccessStatus: 200,
+    // Expose the standard headers clients need (204 is typical for preflight).
+    optionsSuccessStatus: 204,
   };
 }
 

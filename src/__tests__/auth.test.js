@@ -3,7 +3,7 @@ const request = require('supertest');
 process.env.TEST_AUTH_PROTECTED = 'true';
 const jwt = require('jsonwebtoken');
 /* eslint-env jest */
-const { app } = require('../index');
+const app = require('../index');
 
 describe('Authentication Middleware', () => {
     const secret = process.env.JWT_SECRET || 'test-secret';
