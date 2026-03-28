@@ -1,27 +1,34 @@
+'use strict';
+
 /**
  * LiquiFact API Gateway
  * Express server bootstrap for invoice financing, auth, and Stellar integration.
  */
-
-'use strict';
-
 require('dotenv').config();
 
-const express = require('express');
-const cors = require('cors');
+const { createSecurityMiddleware } = require('./middleware/security');
+
+const { globalLimiter, sensitiveLimiter } = require('./middleware/rateLimit');
+const { authenticateToken } = require('./middleware/auth');
 
 const { callSorobanContract } = require('./services/soroban');
 const { validatePatchFields, detectLockedFieldChange } = require('./middleware/patchInvoice');
 
-const PORT = process.env.PORT || 3001;
+const express = require('express');
+const cors = require('cors');
+
 
 const app = express();
+const PORT = process.env.PORT || 3001;
 
 /**
  * Global Middlewares
  */
+// Security headers — applied first so every response is protected
+app.use(createSecurityMiddleware());
 app.use(cors());
 app.use(express.json());
+app.use(globalLimiter);
 
 // In-memory storage for invoices (Issue #25)
 let invoices = [];
@@ -93,7 +100,7 @@ app.get('/api/invoices', (req, res) => {
  * @param {import('express').Response} res
  * @returns {void}
  */
-app.post('/api/invoices', (req, res) => {
+app.post('/api/invoices', sensitiveLimiter, authenticateToken, (req, res) => {
   const { amount, customer } = req.body;
 
   if (!amount || !customer) {
@@ -197,7 +204,7 @@ app.patch('/api/invoices/:id', validatePatchFields, (req, res) => {
  * @param {import('express').Response} res
  * @returns {void}
  */
-app.delete('/api/invoices/:id', (req, res) => {
+app.delete('/api/invoices/:id', authenticateToken, (req, res) => {
   const { id } = req.params;
   const invoiceIndex = invoices.findIndex((inv) => inv.id === id);
 
@@ -228,7 +235,7 @@ app.delete('/api/invoices/:id', (req, res) => {
  * @param {import('express').Response} res
  * @returns {void}
  */
-app.patch('/api/invoices/:id/restore', (req, res) => {
+app.patch('/api/invoices/:id/restore', authenticateToken, (req, res) => {
   const { id } = req.params;
   const invoiceIndex = invoices.findIndex((inv) => inv.id === id);
 
@@ -240,14 +247,9 @@ app.patch('/api/invoices/:id/restore', (req, res) => {
   if (!invoices[invoiceIndex].deletedAt) {
     return res.status(400).json({ error: 'Invoice is not deleted' });
   }
-
-  // eslint-disable-next-line security/detect-object-injection
-  invoices[invoiceIndex].deletedAt = null;
-
-  return res.json({
-    message: 'Invoice restored successfully.',
-    // eslint-disable-next-line security/detect-object-injection
-    data: invoices[invoiceIndex],
+  res.status(201).json({
+    data: { id: 'placeholder', status: 'pending_verification' },
+    message: 'Invoice upload will be implemented with verification and tokenization.',
   });
 });
 
@@ -259,7 +261,7 @@ app.patch('/api/invoices/:id/restore', (req, res) => {
  * @param {import('express').Response} res
  * @returns {Promise<void>}
  */
-app.get('/api/escrow/:invoiceId', async (req, res) => {
+app.get('/api/escrow/:invoiceId', authenticateToken, async (req, res) => {
   const { invoiceId } = req.params;
 
   try {
@@ -286,6 +288,16 @@ app.get('/api/escrow/:invoiceId', async (req, res) => {
 });
 
 /**
+ * Simulated escrow operations (e.g. funding).
+ */
+app.post('/api/escrow', authenticateToken, sensitiveLimiter, (req, res) => {
+    res.json({
+        data: { status: 'funded' },
+        message: 'Escrow operation simulated.'
+    });
+});
+
+/**
  * 404 handler for unknown routes.
  *
  * @param {import('express').Request} req
@@ -294,10 +306,15 @@ app.get('/api/escrow/:invoiceId', async (req, res) => {
  * @returns {void}
  */
 app.use((req, res, next) => {
-  if (req.path === '/error-test-trigger') {
-    return next(new Error('Test error'));
-  }
-  return res.status(404).json({ error: 'Not found', path: req.path });
+  next(
+    new AppError({
+      type: 'https://liquifact.com/probs/not-found',
+      title: 'Resource Not Found',
+      status: 404,
+      detail: `The path ${req.path} does not exist.`,
+      instance: req.originalUrl,
+    })
+  );
 });
 
 /**
