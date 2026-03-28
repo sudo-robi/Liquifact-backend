@@ -171,7 +171,7 @@ function payloadTooLargeHandler(err, req, res, next) {
     const limit =
       typeof err.limit === 'string'
         ? err.limit
-        : err.limit != null
+        : err.limit !== null && err.limit !== undefined
           ? String(err.limit)
           : undefined;
     return res.status(413).json({

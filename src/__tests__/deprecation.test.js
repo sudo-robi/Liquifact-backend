@@ -1,6 +1,5 @@
 const request = require('supertest');
 const express = require('express');
-/* eslint-env jest */
 const { deprecate } = require('../middleware/deprecation');
 
 describe('Deprecation Middleware', () => {

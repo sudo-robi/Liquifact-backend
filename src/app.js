@@ -127,7 +127,7 @@ function createApp(deps = {}) {
       const includeDeleted = req.query.includeDeleted === 'true';
       const invoices = await invoiceRepo.findAll({ includeDeleted });
       res.json(success(invoices));
-    } catch (err) {
+    } catch {
       res.status(500).json(error('Failed to retrieve invoices', 'INVOICE_FETCH_ERROR'));
     }
   });
@@ -145,7 +145,7 @@ function createApp(deps = {}) {
         const invoiceData = req.body;
         const newInvoice = await invoiceRepo.create(invoiceData);
         res.status(201).json(success(newInvoice));
-      } catch (err) {
+      } catch {
         res.status(500).json(error('Failed to create invoice', 'INVOICE_CREATE_ERROR'));
       }
     });
@@ -160,7 +160,7 @@ function createApp(deps = {}) {
         const invoiceData = req.body;
         const newInvoice = await invoiceRepo.create(invoiceData);
         res.status(201).json(success(newInvoice));
-      } catch (err) {
+      } catch {
         res.status(500).json(error('Failed to create invoice', 'INVOICE_CREATE_ERROR'));
       }
     });
@@ -192,7 +192,7 @@ function createApp(deps = {}) {
       }
       const deleted = await invoiceRepo.softDelete(id);
       res.status(200).json(success(deleted));
-    } catch (err) {
+    } catch {
       res.status(500).json(error('Failed to delete invoice', 'INVOICE_DELETE_ERROR'));
     }
   });
@@ -211,13 +211,19 @@ function createApp(deps = {}) {
       }
       const restored = await invoiceRepo.restore(id);
       res.status(200).json(success(restored));
-    } catch (err) {
+    } catch {
       res.status(500).json(error('Failed to restore invoice', 'INVOICE_RESTORE_ERROR'));
     }
   });
 
   // Escrow (using Repository proxied through Soroban retry wrapper)
 
+  /**
+   * Express handler for GET /api/escrow/:invoiceId.
+   * @param {import('express').Request} req
+   * @param {import('express').Response} res
+   * @returns {Promise<void>}
+   */
   const getEscrowHandler = async (req, res) => {
     const { invoiceId } = req.params;
     try {

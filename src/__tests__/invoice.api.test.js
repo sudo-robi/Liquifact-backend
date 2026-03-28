@@ -1,6 +1,14 @@
+/**
+ * @fileoverview Integration tests for the invoice HTTP API (repository-injected app).
+ */
+
 const request = require('supertest');
 const { createApp } = require('../app');
 
+/**
+ * Builds a minimal mock invoice repository for route tests.
+ * @returns {Object} Mock with jest.fn() stubs for repository methods.
+ */
 function createMockInvoiceRepo() {
   return {
     findAll: jest.fn(),

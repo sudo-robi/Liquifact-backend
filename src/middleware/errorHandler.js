@@ -58,10 +58,10 @@ function errorHandler(err, req, res, _next) {
  * @param {Error} err
  * @param {Object} req
  * @param {Object} res
- * @param {Function} next
+ * @param {Function} _next - Unused; kept for Express error-handler arity.
  * @returns {void}
  */
-function handleInternalError(err, req, res, next) {
+function handleInternalError(err, req, res, _next) {
   res.status(500).json({ error: 'Internal server error' });
 }
 

@@ -113,7 +113,7 @@ function createCorsRejectionError(_origin) {
  * @returns {boolean}
  */
 function isCorsOriginRejectedError(err) {
-  return err != null && err.isCorsOriginRejected === true;
+  return err !== null && err !== undefined && err.isCorsOriginRejected === true;
 }
 
 /**

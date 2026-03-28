@@ -81,7 +81,12 @@ function isRetryable(err) {
   return false;
 }
 
-/** @see isRetryable — legacy alias used by tests and older callers */
+/**
+ * Legacy alias matching historical tests and callers.
+ * Delegates to {@link isRetryable}.
+ * @param {unknown} err - Error thrown by the operation.
+ * @returns {boolean} True when the error is considered transient.
+ */
 function isTransientError(err) {
   return isRetryable(err);
 }
