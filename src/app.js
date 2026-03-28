@@ -117,7 +117,7 @@ function createApp() {
       data:    [],
       message: 'Invoice service will list tokenized invoices here.',
     });
-  }));
+  });
 
   // Invoices — POST (create) with strict 512 KB body limit
   app.post('/api/invoices', ...invoiceBodyLimit(), (req, res) => {
