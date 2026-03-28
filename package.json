@@ -30,7 +30,8 @@
     "eslint-plugin-security": "^3.0.1",
     "globals": "^16.0.0",
     "jest": "^30.3.0",
-    "supertest": "^7.0.0"
+    "supertest": "^7.0.0",
+    "vitest": "^4.1.2"
   },
   "jest": {
     "collectCoverageFrom": [

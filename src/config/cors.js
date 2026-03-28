@@ -66,6 +66,30 @@ function resolveAllowlist() {
 }
 
 /**
+ * Returns the default development fallback origins.
+ * @returns {string[]}
+ */
+function getDevelopmentFallbackOrigins() {
+  return DEV_DEFAULT_ORIGINS;
+}
+
+/**
+ * Returns the allowed origins from the environment variable, or [] if unset.
+ * Accepts an optional env object for testability.
+ * @param {object} [env] - Optional environment object (for testing)
+ * @returns {string[]}
+ */
+function getAllowedOriginsFromEnv(env = process.env) {
+  const { NODE_ENV, CORS_ALLOWED_ORIGINS } = env;
+  const parsed = parseAllowedOrigins(CORS_ALLOWED_ORIGINS);
+  if (parsed?.length > 0) return parsed;
+  if (NODE_ENV === 'development') return getDevelopmentFallbackOrigins();
+  return [];
+}
+
+const CORS_REJECTION_MESSAGE = 'CORS policy: origin is not allowed.';
+
+/**
  * Sentinel error thrown when an incoming `Origin` is not on the allowlist.
  * The `isCorsOriginRejected` flag lets downstream error handlers identify it
  * without `instanceof` checks across module boundaries.
@@ -74,7 +98,7 @@ function resolveAllowlist() {
  * @returns {Error} Annotated error instance.
  */
 function createCorsRejectionError(origin) {
-  const err = new Error(`CORS policy: origin "${origin}" is not allowed.`);
+  const err = new Error(CORS_REJECTION_MESSAGE);
   err.isCorsOriginRejected = true;
   err.status = 403;
   return err;
@@ -143,4 +167,8 @@ module.exports = {
   parseAllowedOrigins,
   resolveAllowlist,
   DEV_DEFAULT_ORIGINS,
+  getAllowedOriginsFromEnv,
+  getDevelopmentFallbackOrigins,
+  createCorsRejectionError,
+  CORS_REJECTION_MESSAGE,
 };
