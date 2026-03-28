@@ -156,8 +156,9 @@ function createApp() {
   return app;
 }
 
-module.exports = {
-  createApp,
-  handleCorsError,
-  handleInternalError,
-};
+const app = createApp();
+
+module.exports = app;
+module.exports.createApp = createApp;
+module.exports.handleCorsError = handleCorsError;
+module.exports.handleInternalError = handleInternalError;
