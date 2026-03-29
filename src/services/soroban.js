@@ -83,6 +83,25 @@ function isRetryable(err) {
 }
 
 /**
+ * Backward-compatible transient error detector based on message patterns.
+ *
+ * @param {unknown} err - Error thrown by the operation.
+ * @returns {boolean} True if message implies transient failure.
+ */
+function isTransientError(err) {
+  const message =
+    err && typeof err.message === 'string' ? err.message.toLowerCase() : '';
+  return (
+    message.includes('timeout') ||
+    message.includes('econnrefused') ||
+    message.includes('etimedout') ||
+    message.includes('network') ||
+    message.includes('503') ||
+    message.includes('429')
+  );
+}
+
+/**
  * Executes `operation` with automatic exponential-backoff retries for
  * transient Soroban / Horizon errors.
  *
@@ -136,6 +155,7 @@ async function withRetry(operation, config) {
  *
  * @template T
  * @param {() => Promise<T>} operation - Async function wrapping the contract call.
+ * @param {Object} [config] - Optional retry configuration override.
  * @returns {Promise<T>} Result of the contract call.
  *
  * @example
@@ -143,14 +163,15 @@ async function withRetry(operation, config) {
  *   client.invokeContract('get_escrow_state', [invoiceId])
  * );
  */
-async function callSorobanContract(operation) {
-  return withRetry(operation, SOROBAN_RETRY_CONFIG);
+async function callSorobanContract(operation, config) {
+  return withRetry(operation, Object.assign({}, SOROBAN_RETRY_CONFIG, config));
 }
 
 module.exports = {
   callSorobanContract,
   withRetry,
   computeBackoff,
+  isTransientError,
   isRetryable,
   SOROBAN_RETRY_CONFIG,
   RETRYABLE_STATUS_CODES,
