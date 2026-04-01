@@ -4,7 +4,8 @@
  */
 class AppError extends Error {
   /**
-   * Creates an AppError instance with RFC 7607 Problem Details.
+  * Creates a new AppError instance.
+  *
    * @param {Object} params
    * @param {string} params.type - A URI reference [RFC3986] that identifies the problem type.
    * @param {string} params.title - A short, human-readable summary of the problem type.
