@@ -14,7 +14,9 @@
 
 'use strict';
 
-const { describe, it, expect, beforeEach, beforeAll } = require('@jest/globals');
+// Uses Jest globals: describe, it, expect, beforeEach, beforeAll, jest
+jest.mock('../services/invoice.service');
+
 const request = require('supertest');
 const express = require('express');
 
@@ -65,8 +67,8 @@ function buildApp(middlewares) {
 /**
  * Generates a JSON body string of approximately `targetBytes` bytes.
  *
- * @param {number} targetBytes - Target size in bytes.
- * @returns {string} JSON string.
+ * @param {number} targetBytes - Approximate size of the resulting JSON string in bytes.
+ * @returns {string} JSON string payload.
  */
 function makeJsonBody(targetBytes) {
   const paddingLen = Math.max(0, targetBytes - 11);
@@ -76,8 +78,8 @@ function makeJsonBody(targetBytes) {
 /**
  * Generates a URL-encoded body string of approximately `targetBytes` bytes.
  *
- * @param {number} targetBytes - Target size in bytes.
- * @returns {string} URL-encoded string.
+ * @param {number} targetBytes - Approximate size of the resulting urlencoded string in bytes.
+ * @returns {string} URL-encoded payload.
  */
 function makeUrlencodedBody(targetBytes) {
   return `data=${'x'.repeat(Math.max(0, targetBytes - 5))}`;
@@ -323,9 +325,7 @@ describe('payloadTooLargeHandler()', () => {
       next(err);
     });
     app.use(payloadTooLargeHandler);
-    app.use((_err, _req, res, _next) => {
-      return res.status(500).json({ error: 'other' });
-    });
+    app.use((_err, _req, res, _next) => res.status(500).json({ error: 'other' }));
 
     const res = await request(app).post('/trigger');
     expect(res.status).toBe(413);
@@ -336,9 +336,7 @@ describe('payloadTooLargeHandler()', () => {
     const app = express();
     app.post('/trigger', (_req, _res, next) => next(new Error('unrelated')));
     app.use(payloadTooLargeHandler);
-    app.use((err, _req, res, _next) => {
-      return res.status(500).json({ error: err.message });
-    });
+    app.use((err, _req, res, _next) => res.status(500).json({ error: err.message }));
 
     const res = await request(app).post('/trigger');
     expect(res.status).toBe(500);
@@ -351,9 +349,9 @@ describe('payloadTooLargeHandler()', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('parseAllowedOrigins()', () => {
-  it('returns null for undefined',     () => expect(parseAllowedOrigins(undefined)).toBeNull());
-  it('returns null for empty string',  () => expect(parseAllowedOrigins('')).toBeNull());
-  it('returns null for blank string',  () => expect(parseAllowedOrigins('   ')).toBeNull());
+  it('returns [] for undefined',     () => expect(parseAllowedOrigins(undefined)).toEqual([]));
+  it('returns [] for empty string',  () => expect(parseAllowedOrigins('')).toEqual([]));
+  it('returns [] for blank string',  () => expect(parseAllowedOrigins('   ')).toEqual([]));
   it('parses a single origin',         () => expect(parseAllowedOrigins('https://a.com')).toEqual(['https://a.com']));
   it('parses multiple origins',        () => expect(parseAllowedOrigins('https://a.com,https://b.com')).toEqual(['https://a.com','https://b.com']));
   it('trims whitespace around commas', () => expect(parseAllowedOrigins(' https://a.com , https://b.com ')).toEqual(['https://a.com','https://b.com']));
@@ -442,10 +440,8 @@ describe('computeBackoff()', () => {
     expect(computeBackoff(0, 200, 5000)).toBeGreaterThanOrEqual(0);
   });
   it('increases with attempt number', () => {
-    const _d0 = computeBackoff(0, 200, 5000);
     const d3 = computeBackoff(3, 200, 5000);
-    // With jitter d3 is almost certainly larger; we check average tendency
-    expect(200 * 2 ** 3).toBeGreaterThan(200); // sanity
+    expect(d3).toBeGreaterThanOrEqual(d0);
     expect(d3).toBeLessThanOrEqual(5000);
   });
   it('is capped at maxDelay', () => {

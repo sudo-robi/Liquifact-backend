@@ -1,15 +1,4 @@
-# Dependencies
-node_modules/
-jspm_packages/
-package-lock.json
-
-# Environment variables
-.env
-.env.test
-.env.local
-.env.*.local
-.env.production
-
+node_modules
 # Logs
 logs
 *.log
@@ -117,5 +106,6 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
-*.swo
-*~
+
+# Target (from incoming commit)
+.target

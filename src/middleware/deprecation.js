@@ -9,19 +9,16 @@
  */
 const deprecate = (options = {}) => {
   return (req, res, next) => {
-    // Standard Deprecation header
     res.setHeader('Deprecation', 'true');
 
     if (options.sunset) {
       const sunsetDate = new Date(options.sunset);
-      // Ensure the date is valid before setting header
       if (!isNaN(sunsetDate.getTime())) {
         res.setHeader('Sunset', sunsetDate.toUTCString());
       }
     }
 
     if (options.link) {
-      // rel="deprecation" is the RFC-standard link relation
       res.setHeader('Link', `<${options.link}>; rel="deprecation"`);
     }
 
