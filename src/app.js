@@ -111,9 +111,9 @@ const {
 /**
  * Returns a 403 JSON response only for the dedicated blocked-origin CORS error.
  *
- * @param {Error}                          err  - Request error.
- * @param {import('express').Request}      req  - Express request.
- * @param {import('express').Response}     res  - Express response.
+ * @param {Error} err - Request error.
+ * @param {import('express').Request} req - Express request.
+ * @param {import('express').Response} res - Express response.
  * @param {import('express').NextFunction} next - Express next callback.
  * @returns {void}
  */
@@ -128,9 +128,9 @@ function handleCorsError(err, req, res, next) {
 /**
  * Handles uncaught application errors with a generic 500 response.
  *
- * @param {Error}                          err   - Request error.
- * @param {import('express').Request}      req   - Express request.
- * @param {import('express').Response}     res   - Express response.
+ * @param {Error} err - Request error.
+ * @param {import('express').Request} req - Express request.
+ * @param {import('express').Response} res - Express response.
  * @param {import('express').NextFunction} _next - Express next callback (unused).
  * @returns {void}
  */
@@ -178,25 +178,48 @@ function createApp() {
 
   // ── 4. Routes ────────────────────────────────────────────────────────────
 
-  // Health check
+  // Health check (liveness probe)
   app.get('/health', (req, res) => {
     res.json({
-      status:    'ok',
-      service:   'liquifact-api',
-      version:   '0.1.0',
+      status: 'ok',
+      service: 'liquifact-api',
+      version: '0.1.0',
       timestamp: new Date().toISOString(),
     });
+  });
+
+  // Readiness check (dependency-aware)
+  app.get('/ready', async (req, res) => {
+    try {
+      const { healthy, checks } = await performHealthChecks();
+      const status = healthy ? 200 : 503;
+
+      res.status(status).json({
+        ready: healthy,
+        service: 'liquifact-api',
+        timestamp: new Date().toISOString(),
+        checks,
+      });
+    } catch (error) {
+      res.status(503).json({
+        ready: false,
+        service: 'liquifact-api',
+        timestamp: new Date().toISOString(),
+        error: error.message,
+      });
+    }
   });
 
   // API info
   app.get('/api', (req, res) => {
     res.json({
-      name:        'LiquiFact API',
+      name: 'LiquiFact API',
       description: 'Global Invoice Liquidity Network on Stellar',
       endpoints: {
-        health:   'GET /health',
+        health: 'GET /health',
+        ready: 'GET /ready',
         invoices: 'GET/POST /api/invoices',
-        escrow:   'GET/POST /api/escrow',
+        escrow: 'GET /api/escrow/:invoiceId',
       },
     });
   });
@@ -217,7 +240,7 @@ function createApp() {
   // Invoices — POST (create) with strict 512 KB body limit
   app.post('/api/invoices', ...invoiceBodyLimit(), (req, res) => {
     res.status(201).json({
-      data:    { id: 'placeholder', status: 'pending_verification' },
+      data: { id: 'placeholder', status: 'pending_verification' },
       message: 'Invoice upload will be implemented with verification and tokenization.',
     });
   });
@@ -225,12 +248,15 @@ function createApp() {
   // Escrow — GET by invoiceId (proxied through Soroban retry wrapper)
   app.get('/api/escrow/:invoiceId', async (req, res) => {
     const { invoiceId } = req.params;
+
     try {
       // Simulated remote contract call
       const operation = async () => {
         return { invoiceId, status: 'not_found', fundedAmount: 0 };
       };
+
       const data = await callSorobanContract(operation);
+
       res.json({
         data,
         message: 'Escrow state read from Soroban contract via robust integration wrapper.',

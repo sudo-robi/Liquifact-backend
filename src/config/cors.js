@@ -125,7 +125,7 @@ function isCorsOriginRejectedError(err) {
  * Builds the options object for the `cors` middleware package.
  *
  * The `origin` callback implements exact-match checking against the resolved
- * allowlist.  It calls `callback(null, true)` to approve an origin, and
+ * allowlist. It calls `callback(null, true)` to approve an origin, and
  * `callback(err)` with the rejection error to deny it.
  *
  * @param {Object} [env=process.env] - Environment variable map (for testing).
@@ -164,6 +164,7 @@ function createCorsOptions(env) {
 
       return callback(createCorsRejectionError(origin));
     },
+
     // Expose the standard headers clients need.
     optionsSuccessStatus: 204,
   };
