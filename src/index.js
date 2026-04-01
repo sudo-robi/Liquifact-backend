@@ -1,26 +1,43 @@
+'use strict';
+
 /**
- * LiquiFact API Gateway
- * Express server for invoice financing, auth, and Stellar integration.
+ * Express app configuration for invoice financing, auth, and Stellar integration.
+ * Server startup lives in this module for local runs; tests can import the app directly.
  */
 
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
+const { createSecurityMiddleware } = require('./middleware/security');
+const { globalLimiter, sensitiveLimiter } = require('./middleware/rateLimit');
+const { authenticateToken } = require('./middleware/auth');
+const { callSorobanContract } = require('./services/soroban');
+const AppError = require('./errors/AppError');
+
+const PORT = process.env.PORT || 3001;
+
+// In-memory storage for invoices (Issue #25).
+let invoices = [];
+
 /**
  * Create the Express application instance.
  *
+ * @param {object} [options={}] - App options.
+ * @param {boolean} [options.enableTestRoutes=false] - Whether to expose test-only routes.
  * @returns {import('express').Express}
  */
-function createApp() {
+function createApp(options = {}) {
+  const { enableTestRoutes = false } = options;
   const app = express();
 
+  app.use(createSecurityMiddleware());
   app.use(cors());
   app.use(express.json());
+  app.use(globalLimiter);
 
-  // Health check
   app.get('/health', (req, res) => {
-    res.json({
+    return res.json({
       status: 'ok',
       service: 'liquifact-api',
       version: '0.1.0',
@@ -28,73 +45,207 @@ function createApp() {
     });
   });
 
-  // API info
   app.get('/api', (req, res) => {
-    res.json({
+    return res.json({
       name: 'LiquiFact API',
       description: 'Global Invoice Liquidity Network on Stellar',
       endpoints: {
         health: 'GET /health',
         invoices: 'GET/POST /api/invoices',
-        escrow: 'GET /api/escrow/:invoiceId',
+        escrow: 'GET/POST /api/escrow',
       },
     });
   });
 
-  // Placeholder: Invoices (to be wired to Invoice Service + DB)
   app.get('/api/invoices', (req, res) => {
-    res.json({
-      data: [],
-      message: 'Invoice service will list tokenized invoices here.',
+    const includeDeleted = req.query.includeDeleted === 'true';
+    const filteredInvoices = includeDeleted
+      ? invoices
+      : invoices.filter((inv) => !inv.deletedAt);
+
+    return res.json({
+      data: filteredInvoices,
+      message: includeDeleted ? 'Showing all invoices (including deleted).' : 'Showing active invoices.',
     });
   });
 
-  app.post('/api/invoices', (req, res) => {
-    res.status(201).json({
-      data: { id: 'placeholder', status: 'pending_verification' },
-      message: 'Invoice upload will be implemented with verification and tokenization.',
+  app.post('/api/invoices', sensitiveLimiter, authenticateToken, (req, res) => {
+    const { amount, customer } = req.body;
+
+    if (!amount || !customer) {
+      return res.status(400).json({ error: 'Amount and customer are required' });
+    }
+
+    const newInvoice = {
+      id: `inv_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      amount,
+      customer,
+      status: 'pending_verification',
+      createdAt: new Date().toISOString(),
+      deletedAt: null,
+    };
+
+    invoices.push(newInvoice);
+
+    return res.status(201).json({
+      data: newInvoice,
+      message: 'Invoice uploaded successfully.',
     });
   });
 
-  // Placeholder: Escrow (to be wired to Soroban)
-  app.get('/api/escrow/:invoiceId', (req, res) => {
+  app.delete('/api/invoices/:id', authenticateToken, (req, res) => {
+    const { id } = req.params;
+    const invoiceIndex = invoices.findIndex((inv) => inv.id === id);
+
+    if (invoiceIndex === -1) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    // eslint-disable-next-line security/detect-object-injection
+    if (invoices[invoiceIndex].deletedAt) {
+      return res.status(400).json({ error: 'Invoice is already deleted' });
+    }
+
+    // eslint-disable-next-line security/detect-object-injection
+    invoices[invoiceIndex].deletedAt = new Date().toISOString();
+
+    return res.json({
+      message: 'Invoice soft-deleted successfully.',
+      // eslint-disable-next-line security/detect-object-injection
+      data: invoices[invoiceIndex],
+    });
+  });
+
+  app.patch('/api/invoices/:id/restore', authenticateToken, (req, res) => {
+    const { id } = req.params;
+    const invoiceIndex = invoices.findIndex((inv) => inv.id === id);
+
+    if (invoiceIndex === -1) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    // eslint-disable-next-line security/detect-object-injection
+    if (!invoices[invoiceIndex].deletedAt) {
+      return res.status(400).json({ error: 'Invoice is not deleted' });
+    }
+
+    // eslint-disable-next-line security/detect-object-injection
+    invoices[invoiceIndex].deletedAt = null;
+
+    return res.status(200).json({
+      message: 'Invoice restored successfully.',
+      // eslint-disable-next-line security/detect-object-injection
+      data: invoices[invoiceIndex],
+    });
+  });
+
+  app.get('/api/escrow/:invoiceId', authenticateToken, async (req, res) => {
     const { invoiceId } = req.params;
-    res.json({
-      data: { invoiceId, status: 'not_found', fundedAmount: 0 },
-      message: 'Escrow state will be read from Soroban contract.',
+
+    try {
+      /**
+       * Simulates a Soroban operation for escrow lookup.
+       *
+       * @returns {Promise<object>} Placeholder escrow state.
+       */
+      const operation = async () => {
+        return { invoiceId, status: 'not_found', fundedAmount: 0 };
+      };
+
+      const data = await callSorobanContract(operation);
+      return res.json({
+        data,
+        message: 'Escrow state read from Soroban contract via robust integration wrapper.',
+      });
+    } catch (error) {
+      return res.status(500).json({ error: error.message || 'Error fetching escrow state' });
+    }
+  });
+
+  app.post('/api/escrow', authenticateToken, sensitiveLimiter, (req, res) => {
+    return res.json({
+      data: { status: 'funded' },
+      message: 'Escrow operation simulated.',
     });
   });
 
-  app.use((req, res) => {
-    res.status(404).json({ error: 'Not found', path: req.path });
+  app.get('/error-test-trigger', (req, res, next) => {
+    next(new Error('Simulated server error'));
+  });
+
+  if (enableTestRoutes) {
+    app.get('/__test__/forbidden', (_req, _res) => {
+      throw new AppError({
+        type: 'https://liquifact.com/probs/forbidden',
+        title: 'Forbidden',
+        status: 403,
+        detail: 'Forbidden test route',
+      });
+    });
+
+    app.get('/__test__/upstream', (_req, _res) => {
+      const error = new Error('connection refused');
+      error.code = 'ECONNREFUSED';
+      throw error;
+    });
+
+    app.get('/__test__/explode', (_req, _res) => {
+      throw new Error('Sensitive stack detail should not leak');
+    });
+
+    app.get('/__test__/throw-string', (_req, _res) => {
+      throw 'boom';
+    });
+  }
+
+  app.use((req, res, next) => {
+    next(
+      new AppError({
+        type: 'https://liquifact.com/probs/not-found',
+        title: 'Resource Not Found',
+        status: 404,
+        detail: `The path ${req.path} does not exist.`,
+        instance: req.originalUrl,
+      })
+    );
   });
 
   app.use((err, req, res, _next) => {
     console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    return res.status(err.status || 500).json({ error: 'Internal server error' });
   });
 
   return app;
 }
 
-/**
- * Start the HTTP server.
- *
- * @param {number|string} [port=process.env.PORT || 3001] Port to bind.
- * @returns {import('http').Server}
- */
-function startServer(port = process.env.PORT || 3001) {
-  const app = createApp();
-  return app.listen(port, () => {
-    console.log(`LiquiFact API running at http://localhost:${port}`);
-  });
-}
+const app = createApp({ enableTestRoutes: process.env.NODE_ENV === 'test' });
 
-if (require.main === module) {
+/**
+ * Starts the Express server.
+ *
+ * @returns {import('http').Server} The started server.
+ */
+const startServer = () => {
+  const server = app.listen(PORT, () => {
+    console.warn(`LiquiFact API running at http://localhost:${PORT}`);
+  });
+  return server;
+};
+
+/**
+ * Resets the in-memory store (for testing purposes).
+ *
+ * @returns {void}
+ */
+const resetStore = () => {
+  invoices = [];
+};
+
+if (process.env.NODE_ENV !== 'test') {
   startServer();
 }
 
-module.exports = {
-  createApp,
-  startServer,
-};
+module.exports = app;
+module.exports.createApp = createApp;
+module.exports.startServer = startServer;
+module.exports.resetStore = resetStore;
