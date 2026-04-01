@@ -441,8 +441,7 @@ describe('computeBackoff()', () => {
   });
   it('increases with attempt number', () => {
     const d3 = computeBackoff(3, 200, 5000);
-    // With jitter d3 is almost certainly larger; we check average tendency
-    expect(200 * 2 ** 3).toBeGreaterThan(200); // sanity
+    expect(d3).toBeGreaterThanOrEqual(d0);
     expect(d3).toBeLessThanOrEqual(5000);
   });
   it('is capped at maxDelay', () => {

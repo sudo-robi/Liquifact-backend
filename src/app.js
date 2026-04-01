@@ -104,8 +104,6 @@ const invoiceService                        = require('./services/invoice.servic
 const { createCorsOptions, isCorsOriginRejectedError } = require('./config/cors');
 const { validateInvoiceQueryParams }                  = require('./utils/validators');
 const {
-  jsonBodyLimit,
-  urlencodedBodyLimit,
   invoiceBodyLimit,
   payloadTooLargeHandler,
 } = require('./middleware/bodySizeLimits');
@@ -137,7 +135,24 @@ function handleCorsError(err, req, res, next) {
  * @returns {void}
  */
 function handleInternalError(err, req, res, _next) {
+  const isDevelopment = process.env.NODE_ENV === 'development';
+
+  if (err && (err.type === 'entity.parse.failed' || err.status === 400)) {
+    res.status(400).json({ error: 'Bad Request' });
+    return;
+  }
+
   console.error(err);
+  if (isDevelopment) {
+    res.status(500).json({
+      error: {
+        message: err && err.message ? err.message : 'Internal server error',
+        stack: err && err.stack ? err.stack : null,
+      },
+    });
+    return;
+  }
+
   res.status(500).json({ error: 'Internal server error' });
 }
 
@@ -237,6 +252,14 @@ function createApp() {
     next(new Error('Simulated server error'));
   });
 
+  app.get('/debug/error', (req, res, next) => {
+    next(new Error('Triggered Error'));
+  });
+
+  app.get('/prod-error', (req, res, next) => {
+    next(new Error('Sensitive'));
+  });
+
   // ── 5. 404 catch-all ─────────────────────────────────────────────────────
   app.use((req, res) => {
     res.status(404).json({ error: 'Not found', path: req.path });
@@ -250,8 +273,117 @@ function createApp() {
   return app;
 }
 
-module.exports = {
-  createApp,
-  handleCorsError,
-  handleInternalError,
-};
+/**
+ * Maps HTTP status to default API error code.
+ *
+ * @param {number} statusCode - HTTP status code.
+ * @returns {string} Standardized error code.
+ */
+function getErrorCode(statusCode) {
+  if (statusCode === 400) {
+    return 'BAD_REQUEST';
+  }
+  if (statusCode === 401) {
+    return 'UNAUTHORIZED';
+  }
+  if (statusCode === 403) {
+    return 'FORBIDDEN';
+  }
+  if (statusCode === 404) {
+    return 'NOT_FOUND';
+  }
+  return 'INTERNAL_ERROR';
+}
+
+/**
+ * Builds a standardized envelope from an outgoing JSON payload.
+ *
+ * @param {number} statusCode - Response status code.
+ * @param {unknown} payload - Outgoing payload.
+ * @returns {Object} Standardized response envelope.
+ */
+function toStandardEnvelope(statusCode, payload) {
+  const isDev = process.env.NODE_ENV === 'development';
+  const isObjectPayload = payload !== null && typeof payload === 'object';
+
+  if (
+    isObjectPayload &&
+    Object.prototype.hasOwnProperty.call(payload, 'data') &&
+    Object.prototype.hasOwnProperty.call(payload, 'meta') &&
+    Object.prototype.hasOwnProperty.call(payload, 'error')
+  ) {
+    return payload;
+  }
+
+  if (statusCode < 400) {
+    const data =
+      isObjectPayload && Object.prototype.hasOwnProperty.call(payload, 'data')
+        ? payload.data
+        : payload;
+    return responseHelper.success(data);
+  }
+
+  const payloadError =
+    isObjectPayload && Object.prototype.hasOwnProperty.call(payload, 'error')
+      ? payload.error
+      : null;
+
+  let message = 'Internal server error';
+  if (typeof payloadError === 'string') {
+    message = payloadError;
+  } else if (payloadError && typeof payloadError.message === 'string') {
+    message = payloadError.message;
+  } else if (isObjectPayload && typeof payload.message === 'string') {
+    message = payload.message;
+  }
+
+  if (statusCode >= 500 && !isDev) {
+    message = 'Internal server error';
+  }
+
+  const details = isDev
+    ? (payloadError && payloadError.stack) ||
+      (payloadError && payloadError.details) ||
+      (isObjectPayload && payload.stack) ||
+      (isObjectPayload && payload.message) ||
+      message
+    : null;
+
+  return responseHelper.error(message, getErrorCode(statusCode), details);
+}
+
+/**
+ * Creates app instance that always returns standardized response envelopes.
+ *
+ * @returns {import('express').Express} Standardized app instance.
+ */
+function createStandardizedApp() {
+  const standardizedApp = express();
+  const rawApp = createApp();
+
+  standardizedApp.use((req, res, next) => {
+    const originalJson = res.json.bind(res);
+    /**
+     * Wraps outgoing JSON payloads in the standard response envelope.
+     *
+     * @param {unknown} payload - Outgoing JSON payload.
+     * @returns {import('express').Response} Express response.
+     */
+    res.json = function sendEnvelopedJson(payload) {
+      const envelope = toStandardEnvelope(res.statusCode, payload);
+      return originalJson(envelope);
+    };
+    next();
+  });
+
+  standardizedApp.use(rawApp);
+  return standardizedApp;
+}
+
+const app = createStandardizedApp();
+
+module.exports = app;
+module.exports.createApp = createApp;
+module.exports.createStandardizedApp = createStandardizedApp;
+module.exports.handleCorsError = handleCorsError;
+module.exports.handleInternalError = handleInternalError;

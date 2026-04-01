@@ -22,6 +22,10 @@ const { globalLimiter, sensitiveLimiter } = require('./middleware/rateLimit');
 const { authenticateToken } = require('./middleware/auth');
 const asyncHandler = require('./utils/asyncHandler');
 const errorHandler = require('./middleware/errorHandler');
+const { authenticateToken } = require('./middleware/auth');
+const { globalLimiter, sensitiveLimiter } = require('./middleware/rateLimit');
+const { sanitizeInput } = require('./middleware/sanitizeInput');
+const { createSecurityMiddleware } = require('./middleware/security');
 const { callSorobanContract } = require('./services/soroban');
 const AppError = require('./errors/AppError');
 
@@ -237,7 +241,7 @@ const app = createApp({ enableTestRoutes: process.env.NODE_ENV === 'test' });
 app.use(errorHandler);
 
 /**
- * Starts the Express server.
+ * Starts the HTTP server.
  *
  * @returns {import('http').Server}
  */
@@ -249,7 +253,7 @@ const startServer = () => {
 };
 
 /**
- * Resets the in-memory store (for testing purposes).
+ * Resets the in-memory invoice collection for tests.
  *
  * @returns {void}
  */

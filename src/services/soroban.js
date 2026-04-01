@@ -107,6 +107,25 @@ function isRetryable(err) {
 }
 
 /**
+ * Backward-compatible transient error detector based on message patterns.
+ *
+ * @param {unknown} err - Error thrown by the operation.
+ * @returns {boolean} True if message implies transient failure.
+ */
+function isTransientError(err) {
+  const message =
+    err && typeof err.message === 'string' ? err.message.toLowerCase() : '';
+  return (
+    message.includes('timeout') ||
+    message.includes('econnrefused') ||
+    message.includes('etimedout') ||
+    message.includes('network') ||
+    message.includes('503') ||
+    message.includes('429')
+  );
+}
+
+/**
  * Executes `operation` with automatic exponential-backoff retries for
  * transient Soroban / Horizon errors.
  *
@@ -177,6 +196,7 @@ module.exports = {
   callSorobanContract,
   withRetry,
   computeBackoff,
+  isTransientError,
   isRetryable,
   isTransientError,
   SOROBAN_RETRY_CONFIG,

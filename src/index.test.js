@@ -149,6 +149,7 @@ describe('LiquiFact API', () => {
     });
 
     it('DELETE /api/invoices/:id - soft deletes an invoice', async () => {
+      const bearer = authHeader();
       const postRes = await request(app)
         .post('/api/invoices')
         .set(authHeader)
@@ -225,6 +226,37 @@ describe('LiquiFact API', () => {
       expect(response.status).toBe(200);
       expect(response.body.data).toHaveProperty('invoiceId', '123');
     });
+
+    it('POST /api/escrow - sanitizes user-supplied fields', async () => {
+      const response = await request(app)
+        .post('/api/escrow')
+        .set('Authorization', authHeader())
+        .send({ invoiceId: '  abc-123 \n', fundedAmount: 10 });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data).toHaveProperty('invoiceId', 'abc-123');
+    });
+  });
+
+  describe('Sanitization', () => {
+    it('POST /api/invoices - normalizes customer input before persistence', async () => {
+      const response = await request(app)
+        .post('/api/invoices')
+        .set('Authorization', authHeader())
+        .send({ amount: 1000, customer: '  ACME \n Holdings \u0000 ' });
+
+      expect(response.status).toBe(201);
+      expect(response.body.data.customer).toBe('ACME Holdings');
+    });
+
+    it('POST /api/invoices - rejects missing token before processing payload', async () => {
+      const response = await request(app)
+        .post('/api/invoices')
+        .send({ amount: 1000, customer: '  ACME \n Holdings \u0000 ' });
+
+      expect(response.status).toBe(401);
+      expect(response.body.error.message).toBe('Authentication token is required');
+    });
   });
 
   describe('Server', () => {
@@ -249,6 +281,20 @@ describe('LiquiFact API', () => {
 // ---------------------------------------------------------------------------
 
 describe('Security headers — all endpoints', () => {
+  /**
+   * Asserts the security headers applied by Helmet.
+   *
+   * @param {import('supertest').Response} res - HTTP response.
+   * @returns {void}
+   */
+  const expectSecureHeaders = (res) => {
+    expect(res.headers['content-security-policy']).toBeDefined();
+    expect(res.headers['strict-transport-security']).toBeDefined();
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+    expect(res.headers['x-frame-options']).toBe('DENY');
+    expect(res.headers['referrer-policy']).toBeDefined();
+  };
+
   const endpoints = [
     { method: 'get', path: '/health' },
     { method: 'get', path: '/api' },

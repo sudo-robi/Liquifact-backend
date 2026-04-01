@@ -170,9 +170,12 @@ function urlencodedBodyLimit(limit) {
  */
 function payloadTooLargeHandler(err, req, res, next) {
   if (err.type === 'entity.too.large') {
+    const limitValue = typeof err.limit === 'number' ? `${err.limit}b` : 'unknown';
+
     return res.status(413).json({
       error: 'Payload Too Large',
       message: 'Request body exceeds the maximum allowed size.',
+      limit: limitValue,
       path: req.path,
     });
   }

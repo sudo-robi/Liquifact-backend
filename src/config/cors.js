@@ -104,7 +104,9 @@ function resolveAllowlist(env) {
 function createCorsRejectionError(_origin) {
   const err = new Error(CORS_REJECTION_MESSAGE);
   err.isCorsOriginRejected = true;
+  err.isCorsOriginRejectedError = true;
   err.status = 403;
+  err.origin = origin;
   return err;
 }
 

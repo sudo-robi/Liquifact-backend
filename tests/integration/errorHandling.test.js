@@ -51,12 +51,13 @@ describe('API Integration Tests (RFC 7807)', () => {
     expect(response.body.data.invoiceId).toBe('test-invoice');
   });
 
-  test('GET /unknown-route should return 404 Not Found in RFC 7807 format', async () => {
+  test('GET /unknown-route should return 404 standardized error', async () => {
     const response = await request(app).get('/unknown-route');
 
     expect(response.status).toBe(404);
-    expect(response.body.type).toBe('https://liquifact.com/probs/not-found');
-    expect(response.body.title).toBe('Resource Not Found');
+    expect(response.headers['content-type']).toContain('application/problem+json');
+    expect(response.body.error).toBeDefined();
+    expect(response.body.error.code).toBe('NOT_FOUND');
   });
 
   test('GET /error-test-trigger should return 500 Internal Server Error', async () => {
