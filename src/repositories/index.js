@@ -1,6 +1,11 @@
 const InMemoryInvoiceRepository = require('./in-memory-invoice.repository');
 const InMemoryEscrowRepository = require('./in-memory-escrow.repository');
 const SorobanEscrowRepository = require('./soroban-escrow.repository');
+const {
+  createInvoiceRepositoryAdapter,
+  createEscrowRepositoryAdapter,
+  createRepositoryAdapters,
+} = require('./repository-adapter');
 
 /**
  * @fileoverview Repository factory for easily switching between persistence implementations.
@@ -76,4 +81,7 @@ module.exports = {
   createInvoiceRepository,
   createEscrowRepository,
   RepositoryRegistry,
+  createInvoiceRepositoryAdapter,
+  createEscrowRepositoryAdapter,
+  createRepositoryAdapters,
 };

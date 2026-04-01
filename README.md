@@ -287,6 +287,35 @@ liquifact-backend/
 
 ---
 
+## Repository Abstraction Layer
+
+The backend uses a repository interface + adapter pattern so route/business logic stays independent from any specific persistence engine.
+
+### Design
+
+- **Interfaces:** `src/repositories/invoice.repository.js` and `src/repositories/escrow.repository.js` define required data-access contracts.
+- **Concrete adapters:** in-memory and Soroban repositories implement those interfaces.
+- **Registry/factory:** `src/repositories/index.js` selects providers (`memory`, `soroban`) via dependency injection or environment.
+- **Security adapter wrapper:** `src/repositories/repository-adapter.js` validates runtime contracts and wraps repositories before app usage.
+
+`src/app.js` resolves repositories through `RepositoryRegistry`, then applies `createRepositoryAdapters(...)` to enforce one consistent and hardened interface boundary.
+
+### Contract compliance tests
+
+Repository contract tests live under `tests/unit/repositories/`.
+
+- Existing implementation tests validate interface behavior for each concrete repository.
+- `tests/unit/repositories/repository.adapter.test.js` verifies adapter-level contract compliance, malformed input rejection, and immutable adapter surfaces.
+
+### Security assumptions validated at repository boundary
+
+- **ID hardening:** repository adapter rejects empty IDs and oversized identifiers.
+- **Prototype pollution guard:** nested payloads are rejected when keys like `__proto__`, `prototype`, or `constructor` are present.
+- **Contract safety:** adapter creation fails fast if a repository implementation is missing required methods.
+- **Mutation safety:** adapter objects are frozen to avoid runtime method tampering.
+
+---
+
 ## Security
 
 HTTP response headers are hardened via [Helmet](https://helmetjs.github.io/) (`src/middleware/security.js`). Applied headers include:

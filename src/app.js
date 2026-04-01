@@ -38,6 +38,7 @@ const { authenticateToken } = require('./middleware/auth');
 
 // Import repository registry
 const { RepositoryRegistry } = require('./repositories');
+const { createRepositoryAdapters } = require('./repositories/repository-adapter');
 
 /**
  * Returns a 403 JSON response only for the dedicated blocked-origin CORS error.
@@ -72,7 +73,8 @@ function createApp(deps = {}) {
 
 
   // Use RepositoryRegistry to manage repository dependencies
-  const { invoiceRepo, escrowRepo } = new RepositoryRegistry(deps);
+  const rawRepositories = new RepositoryRegistry(deps);
+  const { invoiceRepo, escrowRepo } = createRepositoryAdapters(rawRepositories);
 
   // ── 0. Security headers (Helmet) ─────────────────────────────────────────
   // Must be first to ensure all responses have security headers

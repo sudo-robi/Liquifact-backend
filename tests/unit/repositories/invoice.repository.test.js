@@ -20,6 +20,14 @@ describe('InvoiceRepository Interface', () => {
     await expect(repo.update('1', {})).rejects.toThrow('Method not implemented1{}');
   });
 
+  test('softDelete should throw error if not implemented', async () => {
+    await expect(repo.softDelete('1')).rejects.toThrow('Method not implemented1');
+  });
+
+  test('restore should throw error if not implemented', async () => {
+    await expect(repo.restore('1')).rejects.toThrow('Method not implemented1');
+  });
+
   test('delete should throw error if not implemented', async () => {
     await expect(repo.delete('1')).rejects.toThrow('Method not implemented1');
   });
